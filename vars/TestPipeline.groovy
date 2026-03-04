@@ -27,7 +27,8 @@ def call(
                         if (!env.SERVICE_NAME) {
                             throw new Exception("Missing required parameter: SERVICE_NAME. Please add it to your service Jenkinsfile.")
                         }
-                        echo "DEBUG: ${env.SERVICE_NAME}"
+                        echo "DEBUG[SERVICE_NAME]: ${env.SERVICE_NAME}"
+                        echo "DEBUG[JENKINS_USER_EMAIL]: ${env.JENKINS_USER_EMAIL}"
                         echo "Running inside dynamic Kubernetes agent: ${NODE_NAME}"
                         sh 'ls -l'
                     }
