@@ -17,6 +17,12 @@ def call(
                 description: 'run_test',
                 name: 'run_test'
             )
+            string(
+                defaultValue: '1',
+                description: 'Number of agents',
+                name: 'num_agents',
+                trim: true
+            )
         }
         stages {
             stage('Preparation') {
@@ -25,7 +31,7 @@ def call(
                         env.JENKINS_USER_EMAIL = (JenkinsHost.getCurrentUserEmail() ?: 'test@test.com').toLowerCase()
                         env.SERVICE_NAME = inputParams.SERVICE_NAME?.trim()
                         if (!env.SERVICE_NAME) {
-                            throw new Exception("Missing required parameter: SERVICE_NAME. Please add it to your service Jenkinsfile.")
+                            throw new Exception('Missing required parameter: SERVICE_NAME. Please add it to your service Jenkinsfile.')
                         }
                         echo "DEBUG[SERVICE_NAME]: ${env.SERVICE_NAME}"
                         echo "DEBUG[JENKINS_USER_EMAIL]: ${env.JENKINS_USER_EMAIL}"
@@ -42,15 +48,16 @@ def call(
                 steps {
                     script {
                         def perfSteps = new PipelineSteps(this, currentBuild, env)
-                        echo "Test Execution"
+                        def num_agents = params.num_agents.toInteger()
+                        echo "Test Execution on ${num_agents} agents"
                     }
                 }
             }
         }
-        
+
         post {
             always {
-                echo "✅DONE"
+                echo '✅DONE'
                 cleanWs()
             }
         }

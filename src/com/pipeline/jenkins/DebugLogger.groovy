@@ -24,7 +24,7 @@ class DebugLogger {
   @NonCPS
   static DebugLogger retrieveInstance() {
     if (logger == null) {
-      throw new IllegalStateException("DebugLogger is not initialized")
+      throw new IllegalStateException('DebugLogger is not initialized')
     }
     return logger
   }
@@ -41,20 +41,20 @@ class DebugLogger {
 
   void debug(String message) {
     if (debugLogging) {
-      log("[DEBUG] " + message)
+      log('[DEBUG] ' + message)
     }
   }
 
   void info(String message) {
-    log("[INFO] " + message)
+    log('[INFO] ' + message)
   }
 
   void warn(String message) {
-    log("[WARN] " + message)
+    log('[WARN] ' + message)
   }
 
   void error(String message) {
-    log("[ERROR] " + message)
+    log('[ERROR] ' + message)
   }
 
   void printStackTrace(Throwable e) {
@@ -69,4 +69,5 @@ class DebugLogger {
       steps.echo(message)
     }
   }
+
 }

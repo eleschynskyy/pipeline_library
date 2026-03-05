@@ -4,6 +4,7 @@ import com.cloudbees.groovy.cps.NonCPS
 import hudson.triggers.TimerTrigger
 
 abstract class AbstractSteps {
+
   protected steps
   protected currentBuild
   protected env
