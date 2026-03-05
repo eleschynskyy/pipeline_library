@@ -79,7 +79,7 @@ def call(
 
         post {
             always {
-                echo '✅DONE'
+                echo '✅ DONE'
                 cleanWs()
             }
         }

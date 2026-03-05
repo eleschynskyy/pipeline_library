@@ -38,7 +38,7 @@ class PipelineSteps extends AbstractSteps {
 
     // Stash workspace for other nodes
     steps.stash name: 'workspace', includes: '**/*'
-    
+
     // Initialize synchronization
     def buildKey = "${env.JOB_NAME}-${env.BUILD_NUMBER}".toString()
     nodeReadyStatus.put(buildKey, Collections.synchronizedSet(new HashSet<Integer>()))
@@ -46,146 +46,106 @@ class PipelineSteps extends AbstractSteps {
     nodeValidationStatus.put(buildKey, 'PENDING')
     steps.echo "Running multi-node test execution: ${numNodes}/${serviceName}/${buildKey}"
 
-    // def testType = config.testType
-    // def runParams = config.runParams
-    // def sendToS3 = config.sendToS3
+    // Reference to this for use in closures
+    def self = this
 
-    // // Reference to this for use in closures
-    // def self = this
+    // Helper closure for node synchronization and test execution
+    def waitForValidationSuccess = { int nodeIdx ->
+      steps.timeout(time: 20, unit: 'MINUTES') {
+          steps.waitUntil(initialRecurrencePeriod: 5000) {
+            def status = nodeValidationStatus.get(buildKey)
+            if ('FAILED'.equals(status)) {
+              steps.error "Node ${nodeIdx}: Validation failed on master node; aborting execution"
+            }
+            return 'SUCCESS'.equals(status)
+          }
+      }
+    }
 
-    // // Helper closure for node synchronization and test execution
-    // def waitForValidationSuccess = { int nodeIdx ->
-    //   steps.timeout(time: 20, unit: 'MINUTES') {
-    //     steps.waitUntil(initialRecurrencePeriod: 5000) {
-    //       def status = nodeValidationStatus.get(buildKey)
-    //       if ('FAILED'.equals(status)) {
-    //         steps.error "Node ${nodeIdx}: Validation failed on master node; aborting execution"
-    //       }
-    //       return 'SUCCESS'.equals(status)
-    //     }
-    //   }
-    // }
+    def executeNodeTest = { int nodeIdx, int totalNodes, String bKey,
+                              String svcName, boolean isMaster ->
+      steps.echo "Running test execution ${nodeIdx + 1}/${totalNodes} on node: ${env.NODE_NAME}"
 
-    // def executeNodeTest = { int nodeIdx, int totalNodes, String bKey,
-    //                         String dImage, String dArgs, String tTitle,
-    //                         String ctxValue, String tType, String rParams, def awsAcc,
-    //                         boolean uploadToS3, String svcName, boolean isMaster ->
-    //   steps.sh "docker pull ${dImage}"
+      if (isMaster) {
+        steps.echo "Node ${nodeIdx}: Running validation phase"
+        try {
+          self.executeRunScript(serviceName: svcName)
+          nodeValidationStatus.put(bKey, 'SUCCESS')
+          steps.echo "Node ${nodeIdx}: Validation successful"
+          } catch (Exception e) {
+          nodeValidationStatus.put(bKey, 'FAILED')
+          throw e
+        }
+        } else {
+        steps.echo "Node ${nodeIdx}: Waiting for master validation result"
+      }
 
-    //   steps.withDockerContainer(image: dImage, args: dArgs) {
-    //     steps.echo "Running test execution ${nodeIdx + 1}/${totalNodes} on node: ${env.NODE_NAME}"
-    //     steps.sh 'chmod +x run.sh'
-    //     def resultPath = "${svcName}${env.BUILD_NUMBER}-node${nodeIdx}"
+      // Ensure validation passed before proceeding
+      waitForValidationSuccess(nodeIdx)
 
-    //     if (isMaster) {
-    //       steps.echo "Node ${nodeIdx}: Running validation phase"
-    //       try {
-    //         self.executeRunScript(
-    //           serviceName: svcName,
-    //           testTitle: tTitle,
-    //           testType: tType,
-    //           runParams: rParams,
-    //           resultPath: resultPath,
-    //           contextValue: ctxValue,
-    //           awsAccount: awsAcc,
-    //           mode: 'validate'
-    //         )
-    //         nodeValidationStatus.put(bKey, 'SUCCESS')
-    //         steps.echo "Node ${nodeIdx}: Validation successful"
-    //       } catch (Exception e) {
-    //         nodeValidationStatus.put(bKey, 'FAILED')
-    //         throw e
-    //       }
-    //     } else {
-    //       steps.echo "Node ${nodeIdx}: Waiting for master validation result"
-    //     }
+      // Phase 1: Signal this node is ready after validation is complete
+      nodeReadyStatus.get(bKey).add(nodeIdx)
+      steps.echo "Node ${nodeIdx}: Phase 1 - Ready for execute (${nodeReadyStatus.get(bKey).size()}/${totalNodes})"
 
-    //     // Ensure validation passed before proceeding
-    //     waitForValidationSuccess(nodeIdx)
+      // Phase 1: Wait for all nodes to be ready
+      steps.timeout(time: 20, unit: 'MINUTES') {
+            steps.waitUntil(initialRecurrencePeriod: 10000) {
+              def readyCount = nodeReadyStatus.get(bKey)?.size() ?: 0
+              steps.echo "Node ${nodeIdx}: Phase 1 - Waiting for all nodes (${readyCount}/${totalNodes})..."
+              return readyCount >= totalNodes
+            }
+      }
+      steps.echo "Node ${nodeIdx}: Phase 1 complete - All nodes ready to execute"
 
-    //     // Phase 1: Signal this node is ready after validation is complete
-    //     nodeReadyStatus.get(bKey).add(nodeIdx)
-    //     steps.echo "Node ${nodeIdx}: Phase 1 - Ready for execute (${nodeReadyStatus.get(bKey).size()}/${totalNodes})"
+      // Phase 2: Signal ready to start
+      nodeStartStatus.get(bKey).add(nodeIdx)
+      steps.echo "Node ${nodeIdx}: Phase 2 - Signaling execute start (${nodeStartStatus.get(bKey).size()}/${totalNodes})"
 
-    //     // Phase 1: Wait for all nodes to be ready
-    //     steps.timeout(time: 20, unit: 'MINUTES') {
-    //       steps.waitUntil(initialRecurrencePeriod: 10000) {
-    //         def readyCount = nodeReadyStatus.get(bKey)?.size() ?: 0
-    //         steps.echo "Node ${nodeIdx}: Phase 1 - Waiting for all nodes (${readyCount}/${totalNodes})..."
-    //         return readyCount >= totalNodes
-    //       }
-    //     }
-    //     steps.echo "Node ${nodeIdx}: Phase 1 complete - All nodes ready to execute"
+      // Phase 2: Wait for all nodes to signal start
+      steps.timeout(time: 5, unit: 'MINUTES') {
+            steps.waitUntil(initialRecurrencePeriod: 1000) {
+              def startCount = nodeStartStatus.get(bKey)?.size() ?: 0
+              steps.echo "Node ${nodeIdx}: Phase 2 - Waiting for synchronized execute start (${startCount}/${totalNodes})..."
+              return startCount >= totalNodes
+            }
+      }
+      steps.echo "Node ${nodeIdx}: All nodes synchronized, starting execute phase at ${new Date()}"
 
-    //     // Phase 2: Signal ready to start
-    //     nodeStartStatus.get(bKey).add(nodeIdx)
-    //     steps.echo "Node ${nodeIdx}: Phase 2 - Signaling execute start (${nodeStartStatus.get(bKey).size()}/${totalNodes})"
+      try {
+        self.executeRunScript(serviceName: svcName)
+      } finally {
+        steps.echo '✅ FINALLY DONE'
+      }
+    }
 
-    //     // Phase 2: Wait for all nodes to signal start
-    //     steps.timeout(time: 5, unit: 'MINUTES') {
-    //       steps.waitUntil(initialRecurrencePeriod: 1000) {
-    //         def startCount = nodeStartStatus.get(bKey)?.size() ?: 0
-    //         steps.echo "Node ${nodeIdx}: Phase 2 - Waiting for synchronized execute start (${startCount}/${totalNodes})..."
-    //         return startCount >= totalNodes
-    //       }
-    //     }
-    //     steps.echo "Node ${nodeIdx}: All nodes synchronized, starting execute phase at ${new Date()}"
+    // Build parallel stages map
+    def parallelStages = [:]
 
-    //     // Execute phase
-    //     def archivePath = "archives/${resultPath}.tar.gz"
-    //     try {
-    //       self.executeRunScript(
-    //         serviceName: svcName,
-    //         testTitle: tTitle,
-    //         testType: tType,
-    //         runParams: rParams,
-    //         resultPath: resultPath,
-    //         contextValue: ctxValue,
-    //         awsAccount: awsAcc,
-    //         mode: 'execute'
-    //       )
-    //     } finally {
-    //       // Always try to stash archive for later collection if S3 upload is enabled
-    //       // This ensures partial results are captured even on abort
-    //       if (uploadToS3) {
-    //         // If run.sh was aborted before creating the archive, package partial results
-    //         self.packagePartialResults(resultPath, nodeIdx)
-    //         self.stashArchive(archivePath, "results-node${nodeIdx}", nodeIdx)
-    //       }
-    //     }
-    //   }
-    // }
+    // Node 0: runs on main agent (no new node needed)
+    parallelStages['Test Execution 0'] = {
+      executeNodeTest(0, numNodes, buildKey, serviceName, true)
+    }
 
-    // // Build parallel stages map
-    // def parallelStages = [:]
+    // Nodes 1, 2, ... : run on separate nodes, unstash workspace
+    for (int i = 1; i < numNodes; i++) {
+      def nodeIndex = i  // Capture for closure
 
-    // // Node 0: runs on main agent (no new node needed)
-    // parallelStages['Test Execution 0'] = {
-    //   executeNodeTest(0, numNodes, buildKey, dockerImage, dockerArgs, testTitle, contextValue, testType, runParams, awsAccount, sendToS3, serviceName, true)
-    // }
+      parallelStages["Test Execution ${nodeIndex}"] = {
+        steps.node('nft') {
+          steps.ws("${env.WORKSPACE}-node${nodeIndex}") {
+            try {
+              steps.unstash 'workspace'
+              executeNodeTest(nodeIndex, numNodes, buildKey, serviceName, false)
+            } finally {
+              steps.cleanWs()
+            }
+          }
+        }
+      }
+    }
 
-    // // Nodes 1, 2, ... : run on separate nodes, unstash workspace
-    // for (int i = 1; i < numNodes; i++) {
-    //   def nodeIndex = i  // Capture for closure
-
-    //   parallelStages["Test Execution ${nodeIndex}"] = {
-    //     steps.node(AgentSteps.AgentCluster.PERFORMANCE_TEST.label) {
-    //       steps.ws("${env.WORKSPACE}-node${nodeIndex}") {
-    //         try {
-    //           steps.unstash 'workspace'
-    //           executeNodeTest(nodeIndex, numNodes, buildKey, dockerImage, dockerArgs, testTitle, contextValue, testType, runParams, awsAccount, sendToS3, serviceName, false)
-    //         } finally {
-    //           steps.cleanWs()
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
-
-    // // Execute all test nodes in parallel (failFast: stop all if one fails)
-    // // Note: On abort, some nodes may not complete stashing if interrupted during cleanup
-    // steps.parallel parallelStages.plus([failFast: true])
-
+    // Execute all test nodes in parallel (failFast: stop all if one fails)
+    steps.parallel parallelStages + ([failFast: true])
   }
 
 }
