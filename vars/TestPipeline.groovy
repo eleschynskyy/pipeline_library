@@ -13,9 +13,9 @@ def call(
         }
         parameters {
             booleanParam(
-                defaultValue: false,
-                description: 'Dummy',
-                name: 'Run_build'
+                defaultValue: true,
+                description: 'run_test',
+                name: 'run_test'
             )
         }
         stages {
@@ -34,11 +34,22 @@ def call(
                     }
                 }
             }
-        }
+
+            stage('Test Execution') {
+                when {
+                    expression { params.run_test }
+                }
+                steps {
+                    script {
+                        def perfSteps = new PipelineSteps(this, currentBuild, env)
+                        echo "Test Execution"
+                    }
+                }
+            }
 
         post {
             always {
-                echo "✅ DONE"
+                echo "✅DONE"
                 cleanWs()
             }
         }
