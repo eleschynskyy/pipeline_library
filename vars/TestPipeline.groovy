@@ -1,5 +1,13 @@
+import groovy.transform.Field
 import com.pipeline.jenkins.JenkinsHost
 import com.pipeline.jenkins.PipelineSteps
+
+import java.util.concurrent.ConcurrentHashMap
+
+// Global maps for multi-node synchronization across parallel branches
+@Field ConcurrentHashMap<String, Set<Integer>> nodeReadyStatus = new ConcurrentHashMap<>()
+@Field ConcurrentHashMap<String, Set<Integer>> nodeStartStatus = new ConcurrentHashMap<>()
+@Field ConcurrentHashMap<String, String> nodeValidationStatus = new ConcurrentHashMap<>()
 
 def call(
   Map inputParams = [:]
@@ -50,12 +58,19 @@ def call(
                         def perfSteps = new PipelineSteps(this, currentBuild, env)
                         def num_agents = params.num_agents
                         if (num_agents == '1') {
-                            echo "Test Execution on 1 agent"
+                            echo 'Test Execution on 1 agent'
                             perfSteps.executeSingleNodeTest(
                                 serviceName: env.SERVICE_NAME
                             )
                         } else {
                             echo "Test Execution on ${num_agents} agents"
+                            perfSteps.executeMultiNodeTest(
+                                numNodes: num_agents.toInteger(),
+                                serviceName: env.SERVICE_NAME,
+                                nodeReadyStatus: nodeReadyStatus,
+                                nodeStartStatus: nodeStartStatus,
+                                nodeValidationStatus: nodeValidationStatus
+                            )
                         }
                     }
                 }
