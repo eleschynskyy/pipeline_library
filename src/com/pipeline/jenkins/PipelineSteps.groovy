@@ -27,6 +27,7 @@ class PipelineSteps extends AbstractSteps {
   void executeSingleNodeTest(Map config) {
     steps.echo "Running single-node test execution on: ${env.NODE_NAME}"
     executeRunScript(serviceName: config.serviceName)
+    steps.sh 'ls -l'
   }
 
   void executeMultiNodeTest(Map config) {
