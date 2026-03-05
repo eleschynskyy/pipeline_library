@@ -16,4 +16,20 @@ class PipelineSteps extends AbstractSteps {
     super(steps, currentBuild, env)
   }
 
+  void executeRunScript(Map runConfig) {
+    steps.withEnv([
+      "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}"
+    ]) {
+        steps.sh 'echo "TEST IN PROGRESS: ${env.INFLUXDB_BUCKET_NAME}"'
+    }
+  }
+
+  /**
+   * Execute test on a single node.
+   */
+  void executeSingleNodeTest(Map config) {
+    steps.echo "Running single-node test execution on: ${env.NODE_NAME}"
+    executeRunScript(serviceName: config.serviceName)
+  }
+
 }
