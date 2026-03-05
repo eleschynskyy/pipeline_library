@@ -48,8 +48,13 @@ def call(
                 steps {
                     script {
                         def perfSteps = new PipelineSteps(this, currentBuild, env)
-                        def num_agents = params.num_agents.toInteger()
+                        def num_agents = params.num_agents
                         echo "Test Execution on ${num_agents} agents"
+                        if (num_agents == '1') {
+                            echo "Test Execution on 1 agent"
+                        } else {
+                            echo "Test Execution on ${num_agents} agents"
+                        }
                     }
                 }
             }
