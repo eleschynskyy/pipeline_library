@@ -27,7 +27,6 @@ class PipelineSteps extends AbstractSteps {
   void executeSingleNodeTest(Map config) {
     steps.echo "Running single-node test execution on: ${env.NODE_NAME}"
     executeRunScript(serviceName: config.serviceName)
-    steps.sh 'ls -l'
   }
 
   void executeMultiNodeTest(Map config) {
@@ -66,7 +65,6 @@ class PipelineSteps extends AbstractSteps {
     def executeNodeTest = { int nodeIdx, int totalNodes, String bKey,
                               String svcName, boolean isMaster ->
       steps.echo "Running test execution ${nodeIdx + 1}/${totalNodes} on node: ${env.NODE_NAME}"
-      steps.sh 'ls -l'
 
       if (isMaster) {
         steps.echo "Node ${nodeIdx}: Running validation phase"
