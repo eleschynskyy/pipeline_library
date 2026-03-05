@@ -20,7 +20,7 @@ class PipelineSteps extends AbstractSteps {
     steps.withEnv([
       "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}"
     ]) {
-        steps.sh 'echo "TEST IN PROGRESS: ${env.INFLUXDB_BUCKET_NAME}"'
+        steps.sh 'echo "TEST IN PROGRESS: $INFLUXDB_BUCKET_NAME"'
     }
   }
 
