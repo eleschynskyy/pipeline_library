@@ -65,6 +65,7 @@ class PipelineSteps extends AbstractSteps {
     def executeNodeTest = { int nodeIdx, int totalNodes, String bKey,
                               String svcName, boolean isMaster ->
       steps.echo "Running test execution ${nodeIdx + 1}/${totalNodes} on node: ${env.NODE_NAME}"
+      steps.sh 'ls -l'
 
       if (isMaster) {
         steps.echo "Node ${nodeIdx}: Running validation phase"
@@ -72,11 +73,11 @@ class PipelineSteps extends AbstractSteps {
           self.executeRunScript(serviceName: svcName)
           nodeValidationStatus.put(bKey, 'SUCCESS')
           steps.echo "Node ${nodeIdx}: Validation successful"
-          } catch (Exception e) {
+        } catch (Exception e) {
           nodeValidationStatus.put(bKey, 'FAILED')
           throw e
         }
-        } else {
+      } else {
         steps.echo "Node ${nodeIdx}: Waiting for master validation result"
       }
 
