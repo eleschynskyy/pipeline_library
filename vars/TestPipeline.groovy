@@ -12,6 +12,11 @@ import java.util.concurrent.ConcurrentHashMap
 def call(
   Map inputParams = [:]
 ) {
+    def dockerImageName = 'jmeter'
+    def dockerImageTag = 'latest'
+    def dockerImageRepo = 'sandbox'
+    def dockerContainerArgs = '-i --entrypoint= --sysctl net.ipv4.ip_local_port_range="1024 65535" --sysctl net.ipv4.tcp_tw_reuse=1'
+
     pipeline {
         agent {
             node {
@@ -55,11 +60,14 @@ def call(
                 }
                 steps {
                     script {
+                        def dockerImage = "${dockerImageRepo}/${dockerImageName}:${dockerImageTag}".replace('https://', '')
                         def perfSteps = new PipelineSteps(this, currentBuild, env)
                         def num_agents = params.num_agents
                         if (num_agents == '1') {
                             echo 'Test Execution on 1 agent'
                             perfSteps.executeSingleNodeTest(
+                                dockerImage: dockerImage,
+                                dockerArgs: dockerContainerArgs,
                                 serviceName: env.SERVICE_NAME
                             )
                         } else {
