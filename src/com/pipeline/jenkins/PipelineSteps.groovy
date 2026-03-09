@@ -26,6 +26,9 @@ class PipelineSteps extends AbstractSteps {
   }
 
   void executeSingleNodeTest(Map config) {
+    steps.echo '>>>>>>>>>>>>>>>>>>>>>'
+    steps.sh "docker -v"
+    steps.echo '<<<<<<<<<<<<<<<<<<<<<'
     steps.sh "docker pull ${config.dockerImage}"
     steps.withDockerContainer(image: config.dockerImage, args: config.dockerArgs) {
       steps.echo "Running single-node test execution on: ${env.NODE_NAME}"
