@@ -17,11 +17,13 @@ class PipelineSteps extends AbstractSteps {
   }
 
   void executeRunScript(Map runConfig) {
+    def runMode = (runConfig.mode ?: 'run').toString().trim()
     steps.withEnv([
-      "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}"
+      "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}",
+      "NFT_RUN_MODE=${runMode}"
     ]) {
         steps.sh 'echo "TEST IN PROGRESS: $INFLUXDB_BUCKET_NAME"'
-        steps.sh './run.sh'
+        steps.sh './run.sh -m "$NFT_RUN_MODE"'
     }
   }
 
@@ -33,7 +35,10 @@ class PipelineSteps extends AbstractSteps {
       steps.container("${config.dockerImage}") {
         steps.echo "Running single-node test execution on: ${env.NODE_NAME}"
         steps.sh 'chmod +x run.sh'
-        executeRunScript(serviceName: config.serviceName)
+        executeRunScript(
+          serviceName: config.serviceName,
+          mode: 'check'
+        )
       }
     }
   }
@@ -84,7 +89,10 @@ class PipelineSteps extends AbstractSteps {
           if (isMaster) {
             steps.echo "Node ${nodeIdx}: Running validation phase"
             try {
-              self.executeRunScript(serviceName: svcName)
+              self.executeRunScript(
+                serviceName: svcName,
+                mode: 'check'
+              )
               nodeValidationStatus.put(bKey, 'SUCCESS')
               steps.echo "Node ${nodeIdx}: Validation successful"
             } catch (Exception e) {
@@ -127,7 +135,10 @@ class PipelineSteps extends AbstractSteps {
           steps.echo "Node ${nodeIdx}: All nodes synchronized, starting execute phase at ${new Date()}"
 
           try {
-            self.executeRunScript(serviceName: svcName)
+            self.executeRunScript(
+              serviceName: svcName,
+              mode: 'run'
+            )
           } finally {
             steps.echo '✅ FINALLY DONE'
           }
