@@ -46,7 +46,7 @@ def call(
                         }
                         echo "DEBUG[SERVICE_NAME]: ${env.SERVICE_NAME}"
                         echo "DEBUG[JENKINS_USER_EMAIL]: ${env.JENKINS_USER_EMAIL}"
-                        echo "Running inside dynamic Kubernetes agent: ${NODE_NAME}"
+                        echo ">Running inside dynamic Kubernetes agent: ${NODE_NAME}"
                         sh 'ls -l'
                     }
                 }
@@ -61,7 +61,7 @@ def call(
                         def perfSteps = new PipelineSteps(this, currentBuild, env)
                         def num_agents = params.num_agents
                         if (num_agents == '1') {
-                            echo 'Test Execution on 1 agent'
+                            echo 'Test Execution on 1 agent:'
                             perfSteps.executeSingleNodeTest(
                                 dockerImage: dockerImageName,
                                 dockerArgs: dockerContainerArgs,
