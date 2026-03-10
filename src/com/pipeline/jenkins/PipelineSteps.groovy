@@ -37,7 +37,7 @@ class PipelineSteps extends AbstractSteps {
         steps.sh 'chmod +x run.sh'
         executeRunScript(
           serviceName: config.serviceName,
-          mode: 'check'
+          mode: 'run'
         )
       }
     }
