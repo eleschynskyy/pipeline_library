@@ -72,6 +72,8 @@ def call(
                             perfSteps.executeMultiNodeTest(
                                 numNodes: num_agents.toInteger(),
                                 serviceName: env.SERVICE_NAME,
+                                dockerImage: dockerImageName,
+                                dockerArgs: dockerContainerArgs,
                                 nodeReadyStatus: nodeReadyStatus,
                                 nodeStartStatus: nodeStartStatus,
                                 nodeValidationStatus: nodeValidationStatus
