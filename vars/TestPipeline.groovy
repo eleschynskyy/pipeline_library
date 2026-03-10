@@ -16,11 +16,9 @@ def call(
     def dockerContainerArgs = '-i --entrypoint= --sysctl net.ipv4.ip_local_port_range="1024 65535" --sysctl net.ipv4.tcp_tw_reuse=1'
 
     pipeline {
-        agent {
-            node {
-                label 'nft'
-                customWorkspace "${env.JOB_NAME}@${env.BUILD_NUMBER}"
-            }
+        agent { 
+            label 'nft'
+            customWorkspace "${env.JOB_NAME}@${env.BUILD_NUMBER}"
         }
         parameters {
             booleanParam(
