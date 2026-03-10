@@ -29,7 +29,6 @@ class PipelineSteps extends AbstractSteps {
 
     steps.echo "Running in container ${config.dockerImage}"
     steps.echo "Running with args ${config.dockerArgs}"
-    steps.echo ">>>>>>>>>>>>"
     steps.withEnv(["JMETER_EXTRA_ARGS=${config.dockerArgs ?: ''}"]) {
       steps.container("${config.dockerImage}") {
         steps.echo "Running single-node test execution on: ${env.NODE_NAME}"
@@ -78,59 +77,60 @@ class PipelineSteps extends AbstractSteps {
     def executeNodeTest = { int nodeIdx, int totalNodes, String bKey,
                             String dImage, String dArgs,
                               String svcName, boolean isMaster ->
-      steps.sh "docker pull ${dImage}"
-      steps.withDockerContainer(image: dImage, args: dArgs) {
-        steps.echo "Running test execution ${nodeIdx + 1}/${totalNodes} on node: ${env.NODE_NAME}"
+      steps.withEnv(["JMETER_EXTRA_ARGS=${dArgs ?: ''}"]) {
+        steps.container("${dImage}") {
+          steps.echo "Running test execution ${nodeIdx + 1}/${totalNodes} on node: ${env.NODE_NAME}"
 
-        if (isMaster) {
-          steps.echo "Node ${nodeIdx}: Running validation phase"
+          if (isMaster) {
+            steps.echo "Node ${nodeIdx}: Running validation phase"
+            try {
+              self.executeRunScript(serviceName: svcName)
+              nodeValidationStatus.put(bKey, 'SUCCESS')
+              steps.echo "Node ${nodeIdx}: Validation successful"
+            } catch (Exception e) {
+              nodeValidationStatus.put(bKey, 'FAILED')
+              throw e
+            }
+          } else {
+            steps.echo "Node ${nodeIdx}: Waiting for master validation result"
+          }
+
+          // Ensure validation passed before proceeding
+          waitForValidationSuccess(nodeIdx)
+
+          // Phase 1: Signal this node is ready after validation is complete
+          nodeReadyStatus.get(bKey).add(nodeIdx)
+          steps.echo "Node ${nodeIdx}: Phase 1 - Ready for execute (${nodeReadyStatus.get(bKey).size()}/${totalNodes})"
+
+          // Phase 1: Wait for all nodes to be ready
+          steps.timeout(time: 20, unit: 'MINUTES') {
+                steps.waitUntil(initialRecurrencePeriod: 10000) {
+                  def readyCount = nodeReadyStatus.get(bKey)?.size() ?: 0
+                  steps.echo "Node ${nodeIdx}: Phase 1 - Waiting for all nodes (${readyCount}/${totalNodes})..."
+                  return readyCount >= totalNodes
+                }
+          }
+          steps.echo "Node ${nodeIdx}: Phase 1 complete - All nodes ready to execute"
+
+          // Phase 2: Signal ready to start
+          nodeStartStatus.get(bKey).add(nodeIdx)
+          steps.echo "Node ${nodeIdx}: Phase 2 - Signaling execute start (${nodeStartStatus.get(bKey).size()}/${totalNodes})"
+
+          // Phase 2: Wait for all nodes to signal start
+          steps.timeout(time: 5, unit: 'MINUTES') {
+                steps.waitUntil(initialRecurrencePeriod: 1000) {
+                  def startCount = nodeStartStatus.get(bKey)?.size() ?: 0
+                  steps.echo "Node ${nodeIdx}: Phase 2 - Waiting for synchronized execute start (${startCount}/${totalNodes})..."
+                  return startCount >= totalNodes
+                }
+          }
+          steps.echo "Node ${nodeIdx}: All nodes synchronized, starting execute phase at ${new Date()}"
+
           try {
             self.executeRunScript(serviceName: svcName)
-            nodeValidationStatus.put(bKey, 'SUCCESS')
-            steps.echo "Node ${nodeIdx}: Validation successful"
-          } catch (Exception e) {
-            nodeValidationStatus.put(bKey, 'FAILED')
-            throw e
+          } finally {
+            steps.echo '✅ FINALLY DONE'
           }
-        } else {
-          steps.echo "Node ${nodeIdx}: Waiting for master validation result"
-        }
-
-        // Ensure validation passed before proceeding
-        waitForValidationSuccess(nodeIdx)
-
-        // Phase 1: Signal this node is ready after validation is complete
-        nodeReadyStatus.get(bKey).add(nodeIdx)
-        steps.echo "Node ${nodeIdx}: Phase 1 - Ready for execute (${nodeReadyStatus.get(bKey).size()}/${totalNodes})"
-
-        // Phase 1: Wait for all nodes to be ready
-        steps.timeout(time: 20, unit: 'MINUTES') {
-              steps.waitUntil(initialRecurrencePeriod: 10000) {
-                def readyCount = nodeReadyStatus.get(bKey)?.size() ?: 0
-                steps.echo "Node ${nodeIdx}: Phase 1 - Waiting for all nodes (${readyCount}/${totalNodes})..."
-                return readyCount >= totalNodes
-              }
-        }
-        steps.echo "Node ${nodeIdx}: Phase 1 complete - All nodes ready to execute"
-
-        // Phase 2: Signal ready to start
-        nodeStartStatus.get(bKey).add(nodeIdx)
-        steps.echo "Node ${nodeIdx}: Phase 2 - Signaling execute start (${nodeStartStatus.get(bKey).size()}/${totalNodes})"
-
-        // Phase 2: Wait for all nodes to signal start
-        steps.timeout(time: 5, unit: 'MINUTES') {
-              steps.waitUntil(initialRecurrencePeriod: 1000) {
-                def startCount = nodeStartStatus.get(bKey)?.size() ?: 0
-                steps.echo "Node ${nodeIdx}: Phase 2 - Waiting for synchronized execute start (${startCount}/${totalNodes})..."
-                return startCount >= totalNodes
-              }
-        }
-        steps.echo "Node ${nodeIdx}: All nodes synchronized, starting execute phase at ${new Date()}"
-
-        try {
-          self.executeRunScript(serviceName: svcName)
-        } finally {
-          steps.echo '✅ FINALLY DONE'
         }
       }
     }
