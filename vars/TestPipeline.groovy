@@ -17,8 +17,7 @@ def call(
 
     pipeline {
         agent { 
-            label 'nft'
-            customWorkspace "${env.JOB_NAME}@${env.BUILD_NUMBER}"
+            label 'nft'; customWorkspace "${env.JOB_NAME}@${env.BUILD_NUMBER}"
         }
         parameters {
             booleanParam(
