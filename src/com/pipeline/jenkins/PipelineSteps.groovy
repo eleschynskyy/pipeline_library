@@ -27,7 +27,8 @@ class PipelineSteps extends AbstractSteps {
 
   void executeSingleNodeTest(Map config) {
     steps.sh "Running in container ${config.dockerImage}"
-    steps.echo '>>>>>>>>>>>>'
+    steps.sh "Running with args ${config.dockerArgs}"
+    steps.echo ">>>>>>>>>>>>"
     steps.withEnv(["JMETER_EXTRA_ARGS=${config.dockerArgs ?: ''}"]) {
       steps.container("${config.dockerImage}") {
         steps.echo "Running single-node test execution on: ${env.NODE_NAME}"
