@@ -16,19 +16,31 @@ class PipelineSteps extends AbstractSteps {
     super(steps, currentBuild, env)
   }
 
-  void executeRunScript(Map runConfig) {
-    def loadEnvFile = { String file -> 
-      def envs = []
-      readFile(file).split("\n").each { line ->
-        line = line.trim()
-        if (line && !line.startsWith("#")) {
-          envs << line
-        }
+  List<String> parseVariables(String file) {
+    def content = steps.readFile(file)
+    return content
+      .readLines()
+      .collect { it.trim() }
+      .findAll { it && !it.startsWith('#') }
+      .collect { line ->
+        def splitIndex = line.indexOf('=')
+        (splitIndex >= 0 ? line.substring(0, splitIndex) : line).trim()
       }
-      return envs
-    }
-    
-    def envVariables = loadEnvFile("variables.env")
+  }
+
+  void executeRunScript(Map runConfig) {
+    // def loadEnvFile = { String file -> 
+    //   def envs = []
+    //   readFile(file).split("\n").each { line ->
+    //     line = line.trim()
+    //     if (line && !line.startsWith("#")) {
+    //       envs << line
+    //     }
+    //   }
+    //   return envs
+    // }
+
+    def envVariables = parseVariables("variables.env")
     def runMode = (runConfig.mode ?: 'run').toString().trim()
     steps.withEnv(envVariables + [
       "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}",
