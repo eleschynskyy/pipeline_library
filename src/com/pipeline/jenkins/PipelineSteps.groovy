@@ -50,6 +50,7 @@ class PipelineSteps extends AbstractSteps {
     // }
 
     def envVariables = parseVariables("variables.env")
+    steps.echo "VARIABLES: ${envVariables}"
     def runMode = (runConfig.mode ?: 'run').toString().trim()
     steps.withEnv(envVariables + [
       "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}",
