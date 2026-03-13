@@ -17,8 +17,20 @@ class PipelineSteps extends AbstractSteps {
   }
 
   void executeRunScript(Map runConfig) {
+    def loadEnvFile = { String file -> 
+      def envs = []
+      readFile(file).split("\n").each { line ->
+        line = line.trim()
+        if (line && !line.startsWith("#")) {
+          envs << line
+        }
+      }
+      return envs
+    }
+    
+    def envVariables = loadEnvFile("variables.env")
     def runMode = (runConfig.mode ?: 'run').toString().trim()
-    steps.withEnv([
+    steps.withEnv(envVariables + [
       "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}",
       "NFT_RUN_MODE=${runMode}"
     ]) {
