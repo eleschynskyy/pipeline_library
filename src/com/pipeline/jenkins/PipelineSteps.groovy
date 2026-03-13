@@ -38,26 +38,17 @@ class PipelineSteps extends AbstractSteps {
   }
 
   void executeRunScript(Map runConfig) {
-    // def loadEnvFile = { String file -> 
-    //   def envs = []
-    //   readFile(file).split("\n").each { line ->
-    //     line = line.trim()
-    //     if (line && !line.startsWith("#")) {
-    //       envs << line
-    //     }
-    //   }
-    //   return envs
-    // }
 
-    def envVariables = parseVariables("variables.env")
+    def envVariables = parseVariables("variables.env").join(",")
     steps.echo "VARIABLES: ${envVariables}"
     def runMode = (runConfig.mode ?: 'run').toString().trim()
-    steps.withEnv(envVariables + [
+    steps.withEnv([
       "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}",
-      "NFT_RUN_MODE=${runMode}"
+      "NFT_RUN_MODE=${runMode}",
+      "VARIABLES=${envVariables}"
     ]) {
         steps.sh 'echo "TEST IN PROGRESS: $INFLUXDB_BUCKET_NAME"'
-        steps.sh './run.sh -m "$NFT_RUN_MODE"'
+        steps.sh './run.sh -m "$NFT_RUN_MODE" -p "$VARIABLES"'
     }
   }
 
