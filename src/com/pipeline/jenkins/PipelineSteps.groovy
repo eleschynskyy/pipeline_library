@@ -18,14 +18,23 @@ class PipelineSteps extends AbstractSteps {
 
   List<String> parseVariables(String file) {
     def content = steps.readFile(file)
+
     return content
-      .readLines()
-      .collect { it.trim() }
-      .findAll { it && !it.startsWith('#') }
-      .collect { line ->
-        def splitIndex = line.indexOf('=')
-        (splitIndex >= 0 ? line.substring(0, splitIndex) : line).trim()
-      }
+        .readLines()
+        .collect { it.trim() }
+        .findAll { it && !it.startsWith('#') }
+        .collect { line ->
+            def splitIndex = line.indexOf('=')
+
+            if (splitIndex < 0) {
+                return line.trim()
+            }
+
+            def key = line.substring(0, splitIndex).trim()
+            def value = line.substring(splitIndex + 1).trim()
+
+            return "${key}=${value}"
+        }
   }
 
   void executeRunScript(Map runConfig) {
