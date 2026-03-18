@@ -39,8 +39,12 @@ class PipelineSteps extends AbstractSteps {
 
   void executeRunScript(Map runConfig) {
 
-    def envVariables = parseVariables("variables.env").join(",")
+    def envVariablesList = parseVariables("variables.env")
+    envVariablesList << "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}"
+    envVariablesList << "INFLUXDB_TOKEN=${env.INFLUXDB_TOKEN}"
+    def envVariables = envVariablesList.join(",")
     steps.echo "VARIABLES: ${envVariables}"
+    steps.echo "INFLUXDB_TOKEN: ${env.INFLUXDB_TOKEN}"
     def runMode = (runConfig.mode ?: 'run').toString().trim()
     steps.withEnv([
       "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}",
