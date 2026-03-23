@@ -41,12 +41,12 @@ class PipelineSteps extends AbstractSteps {
     def timestamp = new SimpleDateFormat("yyyy-MM-dd_HH:mm").format(new Date())
     def branchName = (config.branchName?.trim() ?: '').replaceAll('^origin/', '')
     def testTitleParts = [timestamp, config.serviceName]
-    if (branchName) {
-      testTitleParts.add(branchName)
-    }
-    if (env.BUILD_NUMBER) {
-      testTitleParts.add("#${env.BUILD_NUMBER}")
-    }
+    // if (branchName) {
+    //   testTitleParts.add(branchName)
+    // }
+    // if (env.BUILD_NUMBER) {
+    //   testTitleParts.add("#${env.BUILD_NUMBER}")
+    // }
     def testTitle = testTitleParts.join('@')
     steps.echo "Generated TEST_TITLE: ${testTitle}"
 
@@ -93,6 +93,7 @@ class PipelineSteps extends AbstractSteps {
   void executeMultiNodeTest(Map config) {
     def numNodes = config.numNodes
     def serviceName = config.serviceName
+    def testTitle = config.testTitle
     def dockerImage = config.dockerImage
     def dockerArgs = config.dockerArgs
     def nodeReadyStatus = config.nodeReadyStatus
@@ -127,7 +128,7 @@ class PipelineSteps extends AbstractSteps {
     }
 
     def executeNodeTest = { int nodeIdx, int totalNodes, String bKey,
-                            String dImage, String dArgs,
+                            String dImage, String dArgs, String tTitle,
                               String svcName, boolean isMaster ->
       steps.withEnv(["JMETER_EXTRA_ARGS=${dArgs ?: ''}"]) {
         steps.container("${dImage}") {
@@ -184,6 +185,7 @@ class PipelineSteps extends AbstractSteps {
           try {
             self.executeRunScript(
               serviceName: svcName,
+              testTitle: tTitle,
               mode: 'run'
             )
           } finally {
@@ -198,7 +200,7 @@ class PipelineSteps extends AbstractSteps {
 
     // Node 0: runs on main agent (no new node needed)
     parallelStages['Test Execution 0'] = {
-      executeNodeTest(0, numNodes, buildKey, dockerImage, dockerArgs, serviceName, true)
+      executeNodeTest(0, numNodes, buildKey, dockerImage, dockerArgs, testTitle, serviceName, true)
     }
 
     // Nodes 1, 2, ... : run on separate nodes, unstash workspace
