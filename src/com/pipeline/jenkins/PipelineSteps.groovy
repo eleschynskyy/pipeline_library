@@ -212,7 +212,7 @@ class PipelineSteps extends AbstractSteps {
           steps.ws("${env.WORKSPACE}-node${nodeIndex}") {
             try {
               steps.unstash 'workspace'
-              executeNodeTest(nodeIndex, numNodes, buildKey, dockerImage, dockerArgs, serviceName, false)
+              executeNodeTest(nodeIndex, numNodes, buildKey, dockerImage, dockerArgs, testTitle, serviceName, false)
             } finally {
               steps.cleanWs()
             }
