@@ -37,9 +37,26 @@ class PipelineSteps extends AbstractSteps {
         }
   }
 
+  Map prepareTestExecution(Map config) {
+    def timestamp = new SimpleDateFormat("yyyy-MM-dd_HH:mm").format(new Date())
+    def branchName = (config.branchName?.trim() ?: '').replaceAll('^origin/', '')
+    def testTitleParts = [timestamp, config.serviceName]
+    if (branchName) {
+      testTitleParts.add(branchName)
+    }
+    if (env.BUILD_NUMBER) {
+      testTitleParts.add("#${env.BUILD_NUMBER}")
+    }
+    def testTitle = testTitleParts.join('@')
+    steps.echo "Generated TEST_TITLE: ${testTitle}"
+
+    return [testTitle: testTitle]
+  }
+
   void executeRunScript(Map runConfig) {
     def envVariablesList = parseVariables("variables.env")
     envVariablesList << "INFLUXDB_BUCKET_NAME=${runConfig.serviceName}"
+    envVariablesList << "TEST_TITLE=${runConfig.testTitle}"
     envVariablesList << "INFLUXDB_TOKEN=${env.INFLUXDB_TOKEN}"
     envVariablesList << "INFLUXDB_ORG_ID=${env.INFLUXDB_ORG_ID}"
     envVariablesList << "INFLUXDB_URL=${env.INFLUXDB_URL}"
@@ -66,6 +83,7 @@ class PipelineSteps extends AbstractSteps {
         steps.sh 'chmod +x run.sh'
         executeRunScript(
           serviceName: config.serviceName,
+          testTitle: config.testTitle,
           mode: 'run'
         )
       }

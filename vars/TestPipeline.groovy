@@ -59,19 +59,30 @@ def call(
                 steps {
                     script {
                         def perfSteps = new PipelineSteps(this, currentBuild, env)
+
+                        def prepResult = perfSteps.prepareTestExecution(
+                            serviceName: env.SERVICE_NAME,
+                            branchName: env.GIT_BRANCH
+                        )
+                        // Persist test title for post-run validation
+                        env.NFT_TEST_TITLE = prepResult.testTitle
+                        echo "[Validation] Persisted NFT_TEST_TITLE=${env.NFT_TEST_TITLE}"
+
                         def num_agents = params.num_agents
                         if (num_agents == '1') {
                             echo 'Test Execution on 1 agent'
                             perfSteps.executeSingleNodeTest(
                                 dockerImage: dockerImageName,
                                 dockerArgs: dockerContainerArgs,
-                                serviceName: env.SERVICE_NAME
+                                serviceName: env.SERVICE_NAME,
+                                testTitle: prepResult.testTitle
                             )
                         } else {
                             echo "Test Execution on ${num_agents} agents"
                             perfSteps.executeMultiNodeTest(
                                 numNodes: num_agents.toInteger(),
                                 serviceName: env.SERVICE_NAME,
+                                testTitle: prepResult.testTitle,
                                 dockerImage: dockerImageName,
                                 dockerArgs: dockerContainerArgs,
                                 nodeReadyStatus: nodeReadyStatus,
